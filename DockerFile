@@ -1,0 +1,41 @@
+# ---------- Build Stage ----------
+FROM node:20-alpine AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files first (for better caching)
+COPY package*.json ./
+
+# Install only production dependencies
+RUN npm ci --only=production
+
+# Copy application source
+COPY . .
+
+# ---------- Production Stage ----------
+FROM node:20-alpine
+
+# Create non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+# Set working directory
+WORKDIR /app
+
+# Copy built app and node_modules from builder
+COPY --from=builder /app /app
+
+# Change ownership
+RUN chown -R appuser:appgroup /app
+
+# Switch to non-root user
+USER appuser
+
+# Expose app port (change if needed)
+EXPOSE 3000
+
+# Set environment
+ENV NODE_ENV=production
+
+# Start the app
+CMD ["node", "index.js"]
